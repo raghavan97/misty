@@ -1,0 +1,8 @@
+cd misty/mstplib
+make clean
+make
+cd ../..
+docker run -it -v $PWD:/src snapcore/snapcraft /src/misty/tools/snap_cmds
+#docker run -it --user $(id -u):$(id -g) -v $PWD:/src snapcore/snapcraft /src/misty/tools/snap_cmds
+sleep 2
+sudo chown -R $(id -u):$(id -g) prime parts stage *.snap
