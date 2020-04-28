@@ -1,4 +1,5 @@
 *.pyc
+*.o
 *.history
 misty/mstplib/libmstp.a
 misty/mstplib/libmstp_agent.so

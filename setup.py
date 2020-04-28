@@ -41,6 +41,8 @@ def setup_packages():
             'bin/ReadPropertyMultiple',
             'bin/ReadPropertyMultipleServer',
             'bin/ReadWriteProperty',
+            'bin/ReadWriteFile',
+            'bin/ReadWriteFileServer',
             'bin/WhoIsIAm',
             'bin/bc',
             'bin/bs',

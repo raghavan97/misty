@@ -15,6 +15,9 @@ apps:
   bcmulti:
     command: bin/bc
 
+  bcfile:
+    command: bin/ReadWriteFile
+
   cpini:
     command: bin/cp_ini
 

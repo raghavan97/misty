@@ -347,7 +347,7 @@ class BacnetClientConsoleCmd(ConsoleCmd):
             BacnetClientConsoleCmd._exception("exception: %r", error)
 
     def do_mstpstat(self, args):
-        """discover <addr> <device-id>"""
+        """mstpstat"""
         args = args.split()
         mstp_lib=this_application.mux.directPort.mstp_lib
         mstp_lib.get_mstpstats()
