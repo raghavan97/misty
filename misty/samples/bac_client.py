@@ -29,6 +29,17 @@ from bacpypes.errors import DecodingError
 from bacpypes.primitivedata import Null, Atomic, Boolean, Integer, \
     Real, Double, OctetString, CharacterString, BitString, Date, Time
 from bacpypes.constructeddata import Any, AnyAtomic
+from bacpypes.apdu import \
+    AtomicReadFileRequest, \
+        AtomicReadFileRequestAccessMethodChoice, \
+            AtomicReadFileRequestAccessMethodChoiceRecordAccess, \
+            AtomicReadFileRequestAccessMethodChoiceStreamAccess, \
+    AtomicReadFileACK, \
+    AtomicWriteFileRequest, \
+        AtomicWriteFileRequestAccessMethodChoice, \
+            AtomicWriteFileRequestAccessMethodChoiceRecordAccess, \
+            AtomicWriteFileRequestAccessMethodChoiceStreamAccess, \
+    AtomicWriteFileACK
 
 from misty.mstplib import MSTPSimpleApplication
 from bacpypes.local.device import LocalDeviceObject
@@ -396,6 +407,111 @@ class BacnetClientConsoleCmd(ConsoleCmd):
             mstp_lib.status_debug_flag()
         else:
             print("mstpdbg <enable|disable|status> <filename>")
+
+    def do_download(self, args):
+        """download <addr> <inst> <file-name>"""
+
+        # args gets only the arguments, it does not include the command
+        args = args.split()
+        try:
+
+            if len(args) != 3:
+                raise ValueError('Expected 3 arguments')
+
+            addr, inst, fname = args[:3]
+
+            addr = int(addr)
+            inst = int(inst)
+            fname = str(fname)
+
+            # used across requests
+            self._first_req = True
+            self._addr = addr
+            self._obj_inst = inst
+            self._fname = fname
+            self._start_position = 0
+            self._octet_count = 400
+            self._file_fd = None
+
+            self._download()
+
+        except Exception as error:
+            BacnetClientConsoleCmd._exception("exception: %r", error)
+
+    def _download(self):
+        global device_address
+
+        # build a request
+        obj_type = 'file'
+        obj_inst = self._obj_inst
+        start_position = self._start_position
+        octet_count = self._octet_count
+
+        # build a request
+        request = AtomicReadFileRequest(
+            fileIdentifier=(obj_type, obj_inst),
+            accessMethod=AtomicReadFileRequestAccessMethodChoice(
+                streamAccess=AtomicReadFileRequestAccessMethodChoiceStreamAccess(
+                    fileStartPosition=start_position,
+                    requestedOctetCount=octet_count,
+                    ),
+                ),
+            )
+        request.pduDestination = Address(self._addr)
+        if _debug: BacnetClientConsoleCmd._debug("    - request: %r", request)
+
+        # make an IOCB
+        iocb = IOCB(request)
+
+        # set a callback for the response
+        iocb.add_callback(self._download_response)
+        if _debug:
+            BacnetClientConsoleCmd._debug("    - iocb: %r", iocb)
+
+        # send the request
+        this_application.request_io(iocb)
+
+    def _download_response(self, iocb):
+        # do something for success
+        if iocb.ioResponse:
+            apdu = iocb.ioResponse
+
+            print(apdu)
+
+            # should be an ack
+            if not isinstance(apdu, AtomicReadFileACK):
+                return
+
+            # suck out the record data
+            if apdu.accessMethod.streamAccess:
+                file_start_posn = (
+                    apdu.accessMethod.streamAccess.fileStartPosition
+                )
+                if self._start_position == file_start_posn:
+                    if not self._file_fd:
+                        self._file_fd = open(self._fname, "w")
+                    value = apdu.accessMethod.streamAccess.fileData
+                    self._start_position += len(value)
+                    self._file_fd.write(value)
+                    if apdu.endOfFile:
+                        # close the file
+                        self._file_fd.close()
+                        print(
+                            "Full file received len={}".format(
+                                self._start_position
+                            )
+                        )
+                        return
+            self._download()
+
+
+        # do something for error/reject/abort
+        if iocb.ioError:
+            sys.stdout.write(str(iocb.ioError) + '\n')
+
+        if _debug:
+            BacnetClientConsoleCmd._debug("complete_request %r", iocb)
+
 
     def do_discover(self, args):
         """discover <addr> <device-id>"""
